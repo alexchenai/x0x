@@ -1129,13 +1129,24 @@ async fn publish(
     State(state): State<Arc<AppState>>,
     Json(req): Json<PublishRequest>,
 ) -> impl IntoResponse {
-    // Decode base64 payload
+    // Reject empty topic
+    if req.topic.is_empty() {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({ "ok": false, "error": "topic must not be empty" })),
+        );
+    }
+
+    // Decode base64 payload — the payload field must be base64-encoded
     let payload = match base64::engine::general_purpose::STANDARD.decode(&req.payload) {
         Ok(p) => p,
         Err(e) => {
             return (
                 StatusCode::BAD_REQUEST,
-                Json(serde_json::json!({ "ok": false, "error": format!("invalid base64: {e}") })),
+                Json(serde_json::json!({
+                    "ok": false,
+                    "error": format!("invalid base64 in payload field: {e}. The payload must be base64-encoded (e.g., use `echo -n \"hello\" | base64`)")
+                })),
             );
         }
     };
